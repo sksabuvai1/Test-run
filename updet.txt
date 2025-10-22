@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>VeltoCoin Lite — Full</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+  :root{--bg:#0b1220;--card:#111827;--accent:#2563eb}
+  body{margin:0;font-family:'Noto Sans Bengali',sans-serif;background:var(--bg);color:#fff;padding:18px;padding-bottom:120px}
+  .card{background:var(--card);border-radius:12px;padding:16px;margin-bottom:14px;box-shadow:0 6px 20px rgba(0,0,0,0.3)}
+  h2,h3{margin:0 0 10px}
+  input,button,textarea,select{width:100%;padding:10px;margin:6px 0;border-radius:8px;border:0;font-size:14px}
+  input,textarea,select{background:rgba(255,255,255,0.03);color:#fff}
+  button{background:var(--accent);color:#fff;cursor:pointer}
+  .danger{background:#dc2626}
+  .adminbtn{background:#16a34a}
+  .muted{color:#9ca3af;font-size:13px}
+  .row{display:flex;gap:8px}
+  .row .col{flex:1}
+  .task-list button{display:block;width:100%;margin:8px 0;padding:12px;border-radius:10px;background:linear-gradient(135deg,#2563eb,#1e40af);border:0;color:#fff;font-weight:600;cursor:pointer}
+  .bottom-nav{position:fixed;left:0;right:0;bottom:0;background:#fff;color:#222;display:flex;justify-content:space-around;padding:10px 0;border-top-left-radius:12px;border-top-right-radius:12px;box-shadow:0 -8px 20px rgba(0,0,0,0.12)}
+  .bottom-nav a{color:#444;text-decoration:none;font-size:13px;text-align:center;flex:1}
+  .bottom-nav a.active{color:var(--accent)}
+  .bottom-nav i{display:block;font-size:20px;margin-bottom:4px}
+  .hidden{display:none}
+  table{width:100%;border-collapse:collapse;color:#e6eef8}
+  th,td{padding:8px;border-bottom:1px solid rgba(255,255,255,0.04);text-align:left}
+  th{color:#cbd5e1}
+  .inbox{background:rgba(255,255,255,0.02);padding:8px;border-radius:8px;margin-top:8px}
+  .small{font-size:13px;color:#9ca3af}
+  .banNotice{background:#3b0a0a;padding:12px;border-radius:8px;color:#ffdede;font-weight:600}
+  @media(max-width:520px){ .row{flex-direction:column} }
+</style>
+</head>
+<body>
+
+<!-- NOTE: Gigapub script will be injected on Ads page when user clicks Show Ads. -->
+
+<!-- ================= CONFIG: BOT & ADMIN ================= -->
+<script>
+/* ==== TELEGRAM BOT CONFIG (YOU ALLOWED) ==== */
+const BOT_TOKEN = "8444378023:AAHpFzSykNqOG2hLFTPDFqKerXDUHI7MRsQ";
+const ADMIN_CHAT_ID = "6706688545";
+
+/* ==== OTHER CONFIG ==== */
+const ADMIN_PASS = "1234";
+const MIN_WITHDRAW = 200;
+const GIGAPUB_ZONE_ID = "1987"; // demo zone
+</script>
+
+<!-- ================== PAGES / UI ================== -->
+
+<!-- LOGIN / REGISTER (MANDATORY) -->
+<div id="page-auth" class="card">
+  <h2>💰 VeltoCoin Lite</h2>
+  <div class="small">Start করে লগইন/রেজিস্টার করো — লগইন না করলে ভিতরে ঢুকতে পারবে না</div>
+  <div class="row">
+    <div class="col"><input id="authUser" placeholder="ইউজারনেম"></div>
+    <div class="col"><input id="authPass" type="password" placeholder="পাসওয়ার্ড"></div>
+  </div>
+  <div class="row">
+    <div class="col"><button onclick="doRegister()">রেজিস্টার</button></div>
+    <div class="col"><button onclick="doLogin()">লগইন</button></div>
+  </div>
+  <div class="muted">Device ID: <span id="authDevice">...</span> — IP: <span id="authIP">...</span></div>
+  <div id="banBlock" class="banNotice hidden">আপনি ব্যান হয়েছেন — এই ডিভাইস থেকে কোনো এক্সেস নেই।</div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app" class="hidden">
+  <!-- HOME -->
+  <div id="home" class="card">
+    <h3>🏠 Home</h3>
+    <div class="muted">Logged in as: <b id="curUser">-</b></div>
+    <div class="muted">Device: <span id="showDevice">-</span> | IP: <span id="showIP">-</span></div>
+    <div class="muted">Balance: <b id="curBalance">0</b> পয়েন্ট</div>
+    <div style="margin-top:8px" class="row">
+      <div class="col"><button onclick="logout()">লগআউট</button></div>
+      <div class="col"><button onclick="openInbox()">Inbox</button></div>
+    </div>
+    <div id="inboxArea" class="inbox hidden"><h4 class="small">📨 Inbox</h4><div id="inboxList"></div></div>
+  </div>
+
+  <!-- YOUTUBE TASKS -->
+  <div id="youtube" class="card hidden">
+    <h3>🎥 YouTube Tasks</h3>
+    <div id="ytTasks" class="task-list"></div>
+  </div>
+
+  <!-- FACEBOOK TASKS -->
+  <div id="facebook" class="card hidden">
+    <h3>📘 Facebook Tasks</h3>
+    <div id="fbTasks" class="task-list"></div>
+  </div>
+
+  <!-- TELEGRAM TASKS -->
+  <div id="telegram" class="card hidden">
+    <h3>💬 Telegram Tasks</h3>
+    <div id="tgTasks" class="task-list"></div>
+  </div>
+
+  <!-- WITHDRAW -->
+  <div id="withdraw" class="card hidden">
+    <h3>💸 Withdraw</h3>
+    <p class="small">Minimum withdraw: <b id="minWithdrawLabel"></b> points</p>
+    <input id="withdrawNumber" placeholder="Bkash / Nagad Number">
+    <button onclick="doWithdraw()">Request Withdraw</button>
+    <div id="withdrawMsg" class="muted"></div>
+  </div>
+
+  <!-- ADS PAGE -->
+  <div id="ads" class="card hidden">
+    <h3>📢 Gigapub Ads</h3>
+    <p class="small">Ads will load when you press the button below.</p>
+    <button class="task-list" onclick="loadGigapub()">▶️ Show Ads</button>
+    <div id="gigapubContainer" style="margin-top:12px"></div>
+  </div>
+
+  <!-- ADMIN -->
+  <div id="admin" class="card hidden">
+    <h3>⚙️ Admin Panel</h3>
+    <div id="adminLoginArea">
+      <input id="adminPass" type="password" placeholder="Admin Password">
+      <div class="row">
+        <div class="col"><button onclick="adminLogin()">Login Admin</button></div>
+        <div class="col"><button class="danger" onclick="adminLogout()">Logout Admin</button></div>
+      </div>
+    </div>
+
+    <div id="adminArea" class="hidden">
+      <h4>📥 Pending Withdraws</h4>
+      <div id="adminWithdraws"></div>
+
+      <h4 style="margin-top:12px">📋 Users</h4>
+      <div style="max-height:220px;overflow:auto">
+        <table>
+          <thead><tr><th>User</th><th>Points</th><th>Device</th><th>IP</th><th>Withdraws</th><th>Actions</th></tr></thead>
+          <tbody id="usersTable"></tbody>
+        </table>
+      </div>
+
+      <h4 style="margin-top:12px">📢 Broadcast</h4>
+      <textarea id="broadcastText" placeholder="Message to all users..."></textarea>
+      <div class="row">
+        <div class="col"><button onclick="adminBroadcast()">Send Broadcast (local inbox)</button></div>
+        <div class="col"><button class="adminbtn" onclick="notifyAdminChat()">Notify Admin Chat (Telegram)</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- bottom nav -->
+<nav class="bottom-nav">
+  <a href="#" data-target="home" class="active" onclick="navClick(event)"><i class="fa-solid fa-house"></i>Home</a>
+  <a href="#" data-target="youtube" onclick="navClick(event)"><i class="fa-brands fa-youtube"></i>YouTube</a>
+  <a href="#" data-target="facebook" onclick="navClick(event)"><i class="fa-brands fa-facebook"></i>Facebook</a>
+  <a href="#" data-target="telegram" onclick="navClick(event)"><i class="fa-brands fa-telegram"></i>Telegram</a>
+  <a href="#" data-target="withdraw" onclick="navClick(event)"><i class="fa-solid fa-wallet"></i>Withdraw</a>
+  <a href="#" data-target="ads" onclick="navClick(event)"><i class="fa-solid fa-bullhorn"></i>Ads</a>
+  <a href="#" data-target="admin" onclick="navClick(event)"><i class="fa-solid fa-user-shield"></i>Admin</a>
+</nav>
+
+<!-- ================= SCRIPT ================= -->
+<script>
+/* ------------------ Utilities & Storage ------------------ */
+const STORAGE_USERS = 'vc_users_v2';
+const STORAGE_BANS = 'vc_bans_v2';
+function loadUsers(){ return JSON.parse(localStorage.getItem(STORAGE_USERS)||'{}'); }
+function saveUsers(u){ localStorage.setItem(STORAGE_USERS, JSON.stringify(u)); }
+function loadBans(){ return JSON.parse(localStorage.getItem(STORAGE_BANS)||'{"devices":[],"ips":[]}'); }
+function saveBans(b){ localStorage.setItem(STORAGE_BANS, JSON.stringify(b)); }
+function getCurrent(){ return localStorage.getItem('vc_current') || null; }
+function setCurrent(u){ if(u) localStorage.setItem('vc_current', u); else localStorage.removeItem('vc_current'); }
+
+/* ------------------ Device ID & IP ------------------ */
+let DEVICE_ID = (localStorage.getItem('vc_device') || null);
+if(!DEVICE_ID){
+  DEVICE_ID = 'dev-'+Math.random().toString(36).slice(2,12);
+  localStorage.setItem('vc_device', DEVICE_ID);
+}
+document.getElementById('authDevice').innerText = DEVICE_ID;
+document.getElementById('showDevice').innerText = DEVICE_ID;
+
+let USER_IP = "unknown";
+async function fetchIP(){
+  try{
+    const r = await fetch('https://api.ipify.org?format=json');
+    const d = await r.json();
+    USER_IP = d.ip;
+  }catch(e){
+    USER_IP = "unknown";
+  }
+  document.getElementById('authIP').innerText = USER_IP;
+  document.getElementById('showIP').innerText = USER_IP;
+}
+fetchIP();
+
+/* ------------------ Ban Check ------------------ */
+function isBannedDeviceOrIP(){
+  const bans = loadBans();
+  if(bans.devices.includes(DEVICE_ID)) return true;
+  if(bans.ips.includes(USER_IP)) return true;
+  return false;
+}
+
+/* ------------------ AUTH: register/login/logout ------------------ */
+function doRegister(){
+  if(isBannedDeviceOrIP()){
+    document.getElementById('banBlock').classList.remove('hidden');
+    return;
+  }
+  const u = document.getElementById('authUser').value.trim();
+  const p = document.getElementById('authPass').value.trim();
+  if(!u || !p) return alert('সব ঘর পূরণ করো');
+  const users = loadUsers();
+  // check device/ip duplicate
+  for(const k in users){
+    if(users[k].device === DEVICE_ID){ return alert('এই ডিভাইস দিয়ে আগেই একাউন্ট আছে (ব্যানিং অনুশীলন)'); }
+    if(users[k].ip && users[k].ip === USER_IP){ return alert('এই IP দিয়ে আগে থেকেই একাউন্ট আছে (ব্যানিং অনুশীলন)'); }
+  }
+  users[u] = { pass:p, points:0, device: DEVICE_ID, ip: USER_IP, withdraws: [], inbox: [] };
+  saveUsers(users);
+  setCurrent(u);
+  openAppForUser();
+  alert('রেজিস্টার সফল — logged in');
+}
+
+function doLogin(){
+  if(isBannedDeviceOrIP()){
+    document.getElementById('banBlock').classList.remove('hidden');
+    return;
+  }
+  const u = document.getElementById('authUser').value.trim();
+  const p = document.getElementById('authPass').value.trim();
+  if(!u || !p) return alert('সব ঘর পূরণ করো');
+  const users = loadUsers();
+  if(!users[u]) return alert('ইউজার নেই');
+  if(users[u].pass !== p) return alert('ভুল পাসওয়ার্ড');
+  // device lock: ensure this account's device matches current device
+  if(users[u].device !== DEVICE_ID) return alert('এই একাউন্টে লগইন করা যাবে না — ডিভাইস mismatch');
+  setCurrent(u);
+  openAppForUser();
+  alert('লগইন সফল');
+}
+
+function logout(){
+  setCurrent(null);
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('page-auth').classList.remove('hidden');
+  document.querySelectorAll('.bottom-nav a').forEach(a=>a.classList.remove('active'));
+  document.querySelector('.bottom-nav a')?.classList.add('active');
+}
+
+/* ------------------ OPEN APP AFTER AUTH ------------------ */
+function openAppForUser(){
+  // hide auth, show app
+  document.getElementById('page-auth').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  // show home tab by default
+  showSection('home');
+  updateUserUI();
+}
+
+function updateUserUI(){
+  const cur = getCurrent();
+  document.getElementById('curUser').innerText = cur || '-';
+  if(cur){
+    const users = loadUsers();
+    document.getElementById('curBalance').innerText = users[cur].points || 0;
+    // update inbox if any
+    const inbox = users[cur].inbox || [];
+    const out = inbox.map(i=>`<div class="small">[${i.date}] ${i.text}</div>`).join('');
+    document.getElementById('inboxList').innerHTML = out;
+  } else {
+    document.getElementById('curBalance').innerText = '0';
+  }
+}
+
+/* ------------------ NAVIGATION ------------------ */
+function navClick(e){
+  e.preventDefault();
+  const tgt = e.currentTarget.dataset.target;
+  // if not logged in, block
+  if(!getCurrent()){ alert('আগে Login / Register করো'); return; }
+  document.querySelectorAll('.bottom-nav a').forEach(a=>a.classList.remove('active'));
+  e.currentTarget.classList.add('active');
+  showSection(tgt);
+}
+
+function showSection(name){
+  // hide all possible sections
+  ['home','youtube','facebook','telegram','withdraw','ads','admin'].forEach(id=>{
+    document.getElementById(id).classList.add('hidden');
+  });
+  // show requested section
+  document.getElementById(name).classList.remove('hidden');
+}
+
+/* ------------------ TASKS: render and handle ------------------ */
+const TASKS = {
+  youtube:[
+    {title:"YouTube ভিডিও ১", url:"https://youtube.com", points:1},
+    {title:"YouTube ভিডিও ২", url:"https://youtube.com", points:1},
+    {title:"YouTube চ্যানেল সাবস্ক্রাইব (ডেমো)", url:"https://youtube.com", points:2}
+  ],
+  facebook:[
+    {title:"Facebook পোস্ট লাইক (ডেমো)", url:"https://facebook.com", points:1},
+    {title:"Facebook পেজ ফলো (ডেমো)", url:"https://facebook.com", points:1},
+    {title:"Facebook পোস্ট শেয়ার (ডেমো)", url:"https://facebook.com", points:2}
+  ],
+  telegram:[
+    {title:"Telegram চ্যানেল জয়েন (ডেমো)", url:"https://t.me", points:1},
+    {title:"Telegram গ্রুপ জয়েন (ডেমো)", url:"https://t.me", points:1},
+    {title:"Telegram চ্যানেল রিয়্যাক্ট (ডেমো)", url:"https://t.me", points:2}
+  ]
+};
+
+function renderTasks(){
+  const yt = document.getElementById('ytTasks');
+  const fb = document.getElementById('fbTasks');
+  const tg = document.getElementById('tgTasks');
+  yt.innerHTML = ''; fb.innerHTML = ''; tg.innerHTML = '';
+  TASKS.youtube.forEach((t, i)=>{
+    const b = document.createElement('button');
+    b.textContent = `${t.title} — +${t.points}`;
+    b.onclick = ()=>{ window.open(t.url,'_blank'); setTimeout(()=>{ if(confirm('টাস্ক সম্পন্ন?')) grantPoints(t.points); },7000); };
+    yt.appendChild(b);
+  });
+  TASKS.facebook.forEach(t=>{
+    const b=document.createElement('button');
+    b.textContent = `${t.title} — +${t.points}`;
+    b.onclick = ()=>{ window.open(t.url,'_blank'); setTimeout(()=>{ if(confirm('টাস্ক সম্পন্ন?')) grantPoints(t.points); },7000); };
+    fb.appendChild(b);
+  });
+  TASKS.telegram.forEach(t=>{
+    const b=document.createElement('button');
+    b.textContent = `${t.title} — +${t.points}`;
+    b.onclick = ()=>{ window.open(t.url,'_blank'); setTimeout(()=>{ if(confirm('টাস্ক সম্পন্ন?')) grantPoints(t.points); },7000); };
+    tg.appendChild(b);
+  });
+}
+renderTasks();
+
+function grantPoints(points){
+  const cur = getCurrent();
+  if(!cur){ alert('আগে লগইন করো'); return; }
+  const users = loadUsers();
+  users[cur].points = (users[cur].points || 0) + points;
+  users[cur].inbox = users[cur].inbox || [];
+  users[cur].inbox.unshift({ date: new Date().toLocaleString(), text: `+${points} পয়েন্ট (টাস্ক)` });
+  saveUsers(users);
+  updateUserUI();
+  alert('+'+points+' পয়েন্ট যুক্ত হয়েছে');
+}
+
+/* ------------------ WITHDRAW ------------------ */
+document.getElementById('minWithdrawLabel').innerText = MIN_WITHDRAW;
+function doWithdraw(){
+  const cur = getCurrent();
+  if(!cur) return alert('লগইন করো');
+  const num = document.getElementById('withdrawNumber').value.trim();
+  if(!num) return document.getElementById('withdrawMsg').innerText = 'নাম্বার লিখুন';
+  const users = loadUsers();
+  if((users[cur].points||0) < MIN_WITHDRAW) return document.getElementById('withdrawMsg').innerText = 'কমপক্ষে '+MIN_WITHDRAW+' পয়েন্ট লাগবে';
+  // create withdraw request
+  users[cur].points -= MIN_WITHDRAW;
+  users[cur].withdraws = users[cur].withdraws || [];
+  users[cur].withdraws.push({ num, amount: MIN_WITHDRAW, status: 'pending', date: new Date().toLocaleString() });
+  users[cur].inbox = users[cur].inbox || [];
+  users[cur].inbox.unshift({ date: new Date().toLocaleString(), text: `আপনার উইথড্র রিকোয়েস্ট পাঠানো হয়েছে (${MIN_WITHDRAW} পয়েন্ট)` });
+  saveUsers(users);
+  updateUserUI();
+  document.getElementById('withdrawMsg').innerText = 'রিকোয়েস্ট পাঠানো হয়েছে';
+  // notify admin chat via telegram
+  sendTelegram(`📢 New Withdraw Request\nUser: ${cur}\nAmount: ${MIN_WITHDRAW}\nNum: ${num}\nDevice: ${DEVICE_ID}\nIP: ${USER_IP}`);
+}
+
+/* ------------------ ADS: load gigapub on demand ------------------ */
+let gigapubLoaded = false;
+function loadGigapub(){
+  if(gigapubLoaded) return;
+  // inject script
+  const s = document.createElement('script');
+  s.src = `https://ad.gigapub.tech/script?id=${encodeURIComponent(GIGAPUB_ZONE_ID)}`;
+  s.onload = ()=> {
+    // optionally create a slot placeholder if the library requires it
+    const cont = document.getElementById('gigapubContainer');
+    const ins = document.createElement('ins');
+    ins.className = 'gigapub-slot';
+    ins.setAttribute('data-id', GIGAPUB_ZONE_ID);
+    ins.style.display = 'block';
+    ins.style.width = '100%';
+    ins.style.height = '90px';
+    cont.appendChild(ins);
+    gigapubLoaded = true;
+    console.log('Gigapub script loaded (demo).');
+  };
+  s.onerror = ()=>{ alert('Gigapub লোড হয়নি — ব্রাউজারে adblock থাকতে পারে বা সার্ভার ব্লক করছে।'); }
+  document.body.appendChild(s);
+}
+
+/* ------------------ ADMIN: login, show pending, confirm/reject, broadcast ------------------ */
+function adminLogin(){
+  const pass = document.getElementById('adminPass').value;
+  if(pass !== ADMIN_PASS) return alert('ভুল পাসওয়ার্ড');
+  document.getElementById('adminArea').classList.remove('hidden');
+  document.getElementById('adminLoginArea').classList.add('hidden');
+  loadAdminPanel();
+}
+
+function adminLogout(){
+  document.getElementById('adminArea').classList.add('hidden');
+  document.getElementById('adminLoginArea').classList.remove('hidden');
+}
+
+/* admin panel load */
+function loadAdminPanel(){
+  const users = loadUsers();
+  // pending withdraws
+  const pw = document.getElementById('adminWithdraws');
+  pw.innerHTML = '';
+  for(const u in users){
+    (users[u].withdraws||[]).forEach((w, idx)=>{
+      if(w.status === 'pending'){
+        const c = document.createElement('div');
+        c.className = 'card';
+        c.innerHTML = `<b>${u}</b> — ${w.amount} পয়েন্ট — ${w.num} <br>
+          <div class="row">
+            <div class="col"><button onclick="adminConfirm('${u}', ${idx})">✅ Confirm</button></div>
+            <div class="col"><button class="danger" onclick="adminReject('${u}', ${idx})">❌ Reject</button></div>
+          </div>`;
+        pw.appendChild(c);
+      }
+    });
+  }
+  // users table
+  const tbody = document.getElementById('usersTable');
+  tbody.innerHTML = '';
+  for(const u in users){
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${u}</td><td>${users[u].points||0}</td><td>${users[u].device||''}</td><td>${users[u].ip||''}</td>
+      <td>${(users[u].withdraws||[]).length}</td>
+      <td>
+        <button onclick="adminBan('${u}')">Ban</button>
+        <button onclick="adminUnban('${u}')">Unban</button>
+        <button onclick="sendMessageToUserPrompt('${u}')">Message</button>
+      </td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+/* Confirm withdraw */
+async function adminConfirm(username, idx){
+  const users = loadUsers();
+  if(!users[username]) return alert('User missing');
+  users[username].withdraws[idx].status = 'confirmed';
+  users[username].inbox = users[username].inbox || [];
+  users[username].inbox.unshift({ date: new Date().toLocaleString(), text: 'আপনার উইথড্র কনফার্ম করা হয়েছে' });
+  saveUsers(users);
+  loadAdminPanel();
+  sendTelegram(`✅ Withdraw Confirmed\nUser: ${username}\nAmount: ${users[username].withdraws[idx].amount}`);
+  alert('Confirmed & user notified');
+}
+
+/* Reject withdraw with reason */
+async function adminReject(username, idx){
+  const reason = prompt('রিজেক্টের কারণ লিখুন:');
+  if(reason === null) return;
+  const users = loadUsers();
+  if(!users[username]) return alert('User missing');
+  const amount = users[username].withdraws[idx].amount || MIN_WITHDRAW;
+  // refund
+  users[username].points = (users[username].points || 0) + amount;
+  users[username].withdraws[idx].status = 'rejected';
+  users[username].inbox = users[username].inbox || [];
+  users[username].inbox.unshift({ date: new Date().toLocaleString(), text: `আপনার উইথড্র রিজেক্ট: ${reason} (পয়েন্ট ফেরত)` });
+  saveUsers(users);
+  loadAdminPanel();
+  sendTelegram(`❌ Withdraw Rejected\nUser: ${username}\nAmount: ${amount}\nReason: ${reason}`);
+  alert('Rejected & user notified; points refunded');
+}
+
+/* Admin: ban/unban by username (adds device/ip to ban list) */
+function adminBan(username){
+  const users = loadUsers();
+  if(!users[username]) return alert('User missing');
+  const bans = loadBans();
+  if(users[username].device && !bans.devices.includes(users[username].device)) bans.devices.push(users[username].device);
+  if(users[username].ip && !bans.ips.includes(users[username].ip)) bans.ips.push(users[username].ip);
+  saveBans(bans);
+  alert(`User ${username} banned (device/ip)`);
+  loadAdminPanel();
+}
+function adminUnban(username){
+  const users = loadUsers();
+  if(!users[username]) return alert('User missing');
+  const bans = loadBans();
+  bans.devices = bans.devices.filter(d => d !== users[username].device);
+  bans.ips = bans.ips.filter(i => i !== users[username].ip);
+  saveBans(bans);
+  alert(`User ${username} unbanned`);
+  loadAdminPanel();
+}
+
+/* Admin: send message to single user prompt */
+function sendMessageToUserPrompt(username){
+  const txt = prompt(`Send message to ${username}:`);
+  if(!txt) return;
+  const users = loadUsers();
+  users[username].inbox = users[username].inbox || [];
+  users[username].inbox.unshift({ date: new Date().toLocaleString(), text: `[Admin] ${txt}` });
+  saveUsers(users);
+  alert('Message saved to user inbox');
+}
+
+/* Admin: broadcast local */
+function adminBroadcast(){
+  const txt = document.getElementById('broadcastText').value.trim();
+  if(!txt) return alert('Message লিখো');
+  const users = loadUsers();
+  for(const u in users){
+    users[u].inbox = users[u].inbox || [];
+    users[u].inbox.unshift({ date: new Date().toLocaleString(), text: `[Broadcast] ${txt}` });
+  }
+  saveUsers(users);
+  alert('Broadcast saved to all users inbox (local)');
+}
+
+/* Admin: notify admin chat separately */
+function notifyAdminChat(){
+  const txt = document.getElementById('broadcastText').value.trim();
+  if(!txt) return alert('Message লিখো');
+  sendTelegram(`📢 Admin Broadcast:\n${txt}`);
+  alert('Admin chat notified');
+}
+
+/* ------------------ Telegram send helper ------------------ */
+async function sendTelegram(text){
+  if(!BOT_TOKEN || !ADMIN_CHAT_ID){
+    console.warn('Bot token or admin chat id missing');
+    return;
+  }
+  try{
+    const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+    await fetch(url, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ chat_id: ADMIN_CHAT_ID, text })
+    });
+  }catch(e){ console.error('Telegram send failed', e); }
+}
+
+/* ------------------ Inbox UI ------------------ */
+function openInbox(){
+  const cur = getCurrent();
+  if(!cur) return alert('লগইন করো');
+  const users = loadUsers();
+  const inbox = users[cur].inbox || [];
+  const out = inbox.map(m=>`<div class="small">[${m.date}] ${m.text}</div>`).join('');
+  document.getElementById('inboxList').innerHTML = out || '<div class="small">No messages</div>';
+  document.getElementById('inboxArea').classList.remove('hidden');
+}
+
+/* ------------------ Initial checks & boot ------------------ */
+function boot(){
+  // If device/ip is banned, show ban notice on auth
+  const banned = isBannedDeviceOrIP();
+  if(banned){
+    document.getElementById('banBlock').classList.remove('hidden');
+  }
+  // If user already logged in & not banned, open app
+  const cur = getCurrent();
+  if(cur && !banned){
+    openAppForUser();
+    renderTasks();
+    updateUserUI();
+  } else {
+    // stay on auth
+    document.getElementById('page-auth').classList.remove('hidden');
+    document.getElementById('app').classList.add('hidden');
+  }
+}
+boot();
+
+/* expose to console/inline */
+window.doRegister = doRegister;
+window.doLogin = doLogin;
+window.logout = logout;
+window.renderTasks = renderTasks;
+window.grantPoints = grantPoints;
+window.doWithdraw = doWithdraw;
+window.loadGigapub = loadGigapub;
+window.adminLogin = adminLogin;
+window.adminLogout = adminLogout;
+window.loadAdminPanel = loadAdminPanel;
+window.adminConfirm = adminConfirm;
+window.adminReject = adminReject;
+window.adminBan = adminBan;
+window.adminUnban = adminUnban;
+window.adminBroadcast = adminBroadcast;
+window.notifyAdminChat = notifyAdminChat;
+window.openInbox = openInbox;
+</script>
+
+</body>
+</html>
