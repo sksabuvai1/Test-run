@@ -46,7 +46,7 @@ const ADMIN_CHAT_ID = "6706688545";
 /* ==== OTHER CONFIG ==== */
 const ADMIN_PASS = "1234";
 const MIN_WITHDRAW = 200;
-const GIGAPUB_ZONE_ID = "1987"; // demo zone
+const GIGAPUB_ZONE_ID = "3811"; // demo zone
 </script>
 
 <!-- ================== PAGES / UI ================== -->
@@ -604,4 +604,5 @@ window.openInbox = openInbox;
 </script>
 
 </body>
+
 </html>
